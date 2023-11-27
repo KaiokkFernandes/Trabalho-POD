@@ -2,95 +2,90 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define MAX_LINE_LENGTH 1024
+#define MAX_COURSES 1000
+#define MAX_NAME_LENGTH 100
 
-typedef struct Curso {
-    char nomeCurso[100];
-    char IES[100];
-    char UF[3]; // Unidade da Federação
-    char areaEnquadramento[100];
-} Curso;
+typedef struct {
+    int id;
+    char name[MAX_NAME_LENGTH];
+    char uf[3]; 
+} Course;
 
-typedef struct Node {
-    Curso curso;
-    struct Node *left;
-    struct Node *right;
-} Node;
+Course courses[MAX_COURSES];
+int total_courses = 0;
 
-Node *insert(Node *root, Curso curso) {
-    if (root == NULL) {
-        Node *new_node = malloc(sizeof(Node));
-        new_node->curso = curso;
-        new_node->left = NULL;
-        new_node->right = NULL;
-        return new_node;
+void merge(Course arr[], int left, int mid, int right) {
+    int n1 = mid - left + 1;
+    int n2 = right - mid;
+
+    Course L[n1], R[n2];
+
+    for (int i = 0; i < n1; i++) {
+        L[i] = arr[left + i];
     }
-    int cmp = strcmp(curso.nomeCurso, root->curso.nomeCurso);
-    if (cmp < 0) {
-        root->left = insert(root->left, curso);
-    } else if (cmp > 0) {
-        root->right = insert(root->right, curso);
-    }
-    return root;
-}
-
-Node *search(Node *root, const char *nomeCurso) {
-    if (root == NULL || strcmp(root->curso.nomeCurso, nomeCurso) == 0) {
-        return root;
-    }
-    int cmp = strcmp(nomeCurso, root->curso.nomeCurso);
-    if (cmp < 0) {
-        return search(root->left, nomeCurso);
-    } else {
-        return search(root->right, nomeCurso);
-    }
-}
-
-void freeTree(Node *root) {
-    if (root != NULL) {
-        freeTree(root->left);
-        freeTree(root->right);
-        free(root);
-    }
-}
-
-Node *buildTreeFromFile(const char* nomeArquivo) {
-    FILE* arquivo = fopen(nomeArquivo, "r");
-    if (!arquivo) {
-        perror("Erro ao abrir o arquivo");
-        return NULL;
+    for (int j = 0; j < n2; j++) {
+        R[j] = arr[mid + 1 + j];
     }
 
-    char linha[MAX_LINE_LENGTH];
-    Node *root = NULL;
-    while (!feof(arquivo)) {
-        lerLinha(arquivo, linha);
-        Curso curso;
-        if (sscanf(linha, "%[^,],%[^,],%[^,],%[^,]", curso.nomeCurso, curso.IES, curso.UF, curso.areaEnquadramento) == 4) {
-            root = insert(root, curso);
+    int i = 0, j = 0, k = left;
+    while (i < n1 && j < n2) {
+        if (strcmp(L[i].name, R[j].name) <= 0) {
+            arr[k] = L[i];
+            i++;
+        } else {
+            arr[k] = R[j];
+            j++;
         }
+        k++;
     }
-    fclose(arquivo);
-    return root;
+
+    while (i < n1) {
+        arr[k] = L[i];
+        i++;
+        k++;
+    }
+
+    while (j < n2) {
+        arr[k] = R[j];
+        j++;
+        k++;
+    }
+}
+
+void mergeSort(Course arr[], int left, int right) {
+    if (left < right) {
+        int mid = left + (right - left) / 2;
+        mergeSort(arr, left, mid);
+        mergeSort(arr, mid + 1, right);
+        merge(arr, left, mid, right);
+    }
+}
+
+void readCoursesFromFile(const char* filename) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        perror("Erro ao abrir o arquivo");
+        return;
+    }
+
+    while(fscanf(file, "%d,%99[^,],%2s", &courses[total_courses].id, courses[total_courses].name, courses[total_courses].uf) == 3) {
+        total_courses++;
+        if (total_courses >= MAX_COURSES) break;
+    }
+
+    fclose(file);
 }
 
 int main() {
-    Node *root = buildTreeFromFile("cursos.txt");
-    // Agora você pode usar root para pesquisar por um curso específico
-    char cursoProcurado[100];
-    printf("Digite o nome do curso que deseja procurar: ");
-    fgets(cursoProcurado, 100, stdin);
-    cursoProcurado[strcspn(cursoProcurado, "\n")] = 0; // Remove newline
+    readCoursesFromFile("microdados2021_arq1.txt");
+    readCoursesFromFile("microdados2021_arq3.txt");
 
-    Node *found = search(root, cursoProcurado);
-    if (found) {
-        printf("Curso encontrado: %s, IES: %s, UF: %s, Área: %s\n", 
-            found->curso.nomeCurso, found->curso.IES, found->curso.UF, found->curso.areaEnquadramento);
-    } else {
-        printf("Curso não encontrado.\n");
+    mergeSort(courses, 0, total_courses - 1);
+
+    
+    for (int i = 0; i < total_courses; i++) {
+        printf("ID: %d, Name: %s, UF: %s\n", courses[i].id, courses[i].name, courses[i].uf);
     }
 
-    // Não esqueça de liberar a memória da árvore
-    freeTree(root);
     return 0;
 }
